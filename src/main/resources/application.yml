@@ -64,7 +64,7 @@ resilience4j.circuitbreaker:
 resilience4j.retry:
   configs:
     default:
-      maxRetryAttempts: 3
+      maxRetryAttempts: 5
       waitDuration: 1000
       retryExceptions:
         - org.springframework.web.client.HttpServerErrorException
@@ -96,11 +96,10 @@ resilience4j.thread-pool-bulkhead:
       queueCapacity: 2
   instances:
     backend:
-#      baseConfig: default
-#    backendB:
       maxThreadPoolSize: 1
       coreThreadPoolSize: 1
       queueCapacity: 1
+
 
 resilience4j.ratelimiter:
   configs:
@@ -125,3 +124,4 @@ resilience4j:
   instances:
     backend:
       baseConfig: default
+

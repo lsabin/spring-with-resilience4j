@@ -7,18 +7,26 @@ import io.github.resilience4j.bulkhead.ThreadPoolBulkhead;
 import io.github.resilience4j.bulkhead.ThreadPoolBulkheadRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.decorators.Decorators;
 import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
+import java.time.temporal.TemporalUnit;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.example.demo.service.TheService.BACKEND;
+import static java.time.temporal.ChronoUnit.SECONDS;
 
 @RestController
+@Slf4j
 public class TheController {
 
     private final TheService service;
@@ -37,6 +45,8 @@ public class TheController {
         this.threadPoolBulkhead = threadPoolBulkheadRegistry.bulkhead(BACKEND);
         this.retry = retryRegistry.retry(BACKEND);
         this.service = service;
+
+        log.info("Config retry: {}", retryRegistry.getConfiguration(BACKEND));
     }
 
     @GetMapping("failure")
@@ -81,6 +91,28 @@ public class TheController {
     @GetMapping("fallback")
     public String failureWithFallback() {
         return service.failureWithFallback();
+    }
+
+    @GetMapping("timeout")
+    public String withTimeout() {
+        return service.slow();
+    }
+
+    @GetMapping("retry-configured")
+    public String withRetry() {
+        RetryConfig retryConfig = RetryConfig.custom()
+                .maxAttempts(1)
+                .retryExceptions(NullPointerException.class, IllegalStateException.class)
+                .waitDuration(Duration.of(3L, SECONDS))
+                .intervalFunction(IntervalFunction.ofExponentialBackoff())
+                .build();
+
+        RetryRegistry retryRegistry = RetryRegistry.of(retryConfig);
+        Retry retry = retryRegistry.retry("theRetry");
+
+        Supplier<String> supplier = Retry.decorateSupplier(retry, () -> service.failure());
+
+        return supplier.get();
     }
 
     private <T> T execute(Supplier<T> supplier){

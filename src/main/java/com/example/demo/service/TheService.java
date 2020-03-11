@@ -4,6 +4,7 @@ import com.example.demo.exception.BusinessException;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,14 +25,17 @@ public class TheService {
     public String failure() {
         log.info("Calling failing server...");
 
-        int random = new Random().nextInt(10);
+        int random = new Random().nextInt(15);
 
         if (random < 5) {
             log.info("Success!!!");
             return "Successful call to server";
+        } else {
+            log.info("Exception thrown");
+            throw new IllegalStateException();
         }
 
-        throw new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR, "This is a remote exception");
+
     }
 
     @CircuitBreaker(name = BACKEND)
@@ -44,6 +48,7 @@ public class TheService {
     @Bulkhead(name = BACKEND)
     @Retry(name = BACKEND)
     public String success() {
+        log.info("Success!!!");
         return "Hello World from backend";
     }
 
@@ -58,12 +63,30 @@ public class TheService {
         return failure();
     }
 
+
+    @TimeLimiter(name = BACKEND)
+    public String slow() {
+        timeout();
+        return "Hello World from backend";
+    }
+
+
     private String fallback(HttpServerErrorException ex) {
         return "Recovered HttpServerErrorException: " + ex.getMessage();
     }
 
     private String fallback(Exception ex) {
         return "Recovered: " + ex.toString();
+    }
+
+
+    private String timeout(){
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
 
